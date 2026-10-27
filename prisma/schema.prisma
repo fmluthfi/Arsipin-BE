@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PENULIS
+  REVIEWER
+  ADMIN
+}
+
+enum Status {
+  DRAFT
+  REVIEW
+  APPROVED
+  PUBLISHED
+}
+
+model User {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  username     String?           @unique
+  name         String?
+  image        String?
+  passwordHash String?
+  role         Role              @default(PENULIS)
+  documents    Document[]        @relation("DocumentAuthor")
+  versions     DocumentVersion[] @relation("VersionAuthor")
+  sessions     Session[]
+  createdAt    DateTime          @default(now())
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Document {
+  id               String           @id @default(cuid())
+  judul            String
+  status           Status           @default(DRAFT)
+  currentVersionId String?          @unique
+  createdById      String
+  createdBy        User             @relation("DocumentAuthor", fields: [createdById], references: [id])
+  currentVersion   DocumentVersion? @relation("CurrentDocumentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions         DocumentVersion[] @relation("DocumentVersions")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  nomor       Int
+  isi         String
+  ringkasan   String?
+  createdById String
+  createdBy   User     @relation("VersionAuthor", fields: [createdById], references: [id])
+  currentFor  Document? @relation("CurrentDocumentVersion")
+  createdAt   DateTime @default(now())
+
+  @@unique([documentId, nomor])
+  @@index([documentId, createdAt])
+}
